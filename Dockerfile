@@ -20,6 +20,8 @@ RUN apt update && \
 
 RUN Rscript -e "install.packages('BiocManager');BiocManager::install('Biobase');install.packages('devtools');"
 RUN Rscript -e "devtools::install_github('IRkernel/IRkernel');IRkernel::installspec()"
+COPY jupyter_notebook_config.json /root/.jupyter/jupyter_notebook_config.json
+COPY jupyter_notebook_config.py /root/.jupyter/jupyter_notebook_config.py
 
 RUN apt autoclean && \
     apt purge -y build-essential software-properties-common git && \
