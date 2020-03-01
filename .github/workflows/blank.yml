@@ -1,17 +1,52 @@
 name: CI
 
-on: [push]
+on:
+  push:
+    paths-ignore:
+      - '*.md'
+    branches:
+      - master
+    tags:
+      - v*
+  pull_request:
+    branches:
+      - master
+    tags:
+      - v*
+  release:
+    types: [published,prereleased]
+
+env:
+  IMAGE_NAME: binformatics_board
+  DOCKER_HUB_REP_NAME: btrspg
 
 jobs:
-  build:
 
-    runs-on: ubuntu-latest
-
+  test:
+    runs-on: [ubuntu-latest]
     steps:
-    - uses: actions/checkout@v2
-    - name: Run a one-line script
-      run: echo Hello, world!
-    - name: Run a multi-line script
-      run: |
-        echo Add other actions to build,
-        echo test, and deploy your project.
+      - uses: actions/checkout@v1
+      - name: test
+        run: |
+          docker build .
+  build:
+    needs: test
+    runs-on: [ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v1
+      - name: build docker image
+        run: |
+          docker build . --file Dockerfile -t ${IMAGE_NAME}
+      - name: Log into registry
+        run: echo "${{ secrets.token }}" | docker login  -u ${DOCKER_HUB_REP_NAME} --password-stdin
+      - name: push image
+        run: |
+          IMAGE_ID=${DOCKER_HUB_REP_NAME}/${IMAGE_NAME}
+          # Strip git ref prefix from verseion
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          # Strip "v" prefix from tag name
+          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+          # Use Docker `latest` tag convention
+          [ "$VERSION" == "master" ] && VERSION="latest"
+          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
+          docker push $IMAGE_ID:$VERSION
